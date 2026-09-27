@@ -1,32 +1,43 @@
+import json
 import subprocess
+import urllib.request
 
 
 class Brain:
-    def __init__(self, model_path="models/Qwen3-4B-Q4_K_M.gguf"):
-        self.model_path = model_path
+    def __init__(
+        self,
+        server_url="http://127.0.0.1:8080",
+    ):
+        self.server_url = server_url
 
     def ask(self, prompt):
-        command = [
-            "llama-cli",
-            "-m", self.model_path,
-            "-c", "2048",
-            "-t", "4",
-            "-n", "256",
-            "--reasoning", "off",
-            "--simple-io",
-            "--no-display-prompt",
-            "--single-turn",
-            "-p", prompt,
-        ]
+        url = f"{self.server_url}/v1/chat/completions"
 
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+        data = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            "temperature": 0.7,
+            "max_tokens": 256,
+        }
+
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+            },
+            method="POST",
         )
 
-        if result.returncode != 0:
-            return f"Error del cerebro: {result.stderr.strip()}"
+        try:
+            with urllib.request.urlopen(request) as response:
+                result = json.loads(response.read().decode("utf-8"))
 
-        return result.stdout.strip()
+            return result["choices"][0]["message"]["content"].strip()
+
+        except Exception as error:
+            return f"Error del cerebro: {error}"

@@ -2,6 +2,7 @@ from datetime import datetime
 
 from src.rebecca.memory import Memory
 from src.rebecca.brain import Brain
+from src.rebecca.cognitive import CognitiveEngine
 
 
 class Rebecca:
@@ -11,6 +12,11 @@ class Rebecca:
 
         self.memory = Memory()
         self.brain = Brain()
+
+        self.cognitive = CognitiveEngine(
+            self.memory,
+            self.brain,
+        )
 
     def greet(self):
         hour = datetime.now().hour
@@ -43,7 +49,6 @@ class Rebecca:
 
         for memory in memories:
             memory_id, content, memory_type, importance, created_at = memory
-
             response += f"[{memory_id}] {content}\n"
 
         return response
@@ -58,6 +63,7 @@ class Rebecca:
         print(self.greet())
         print("Memoria: ONLINE")
         print("Cerebro: ONLINE")
+        print("Cognición: ONLINE")
         print()
 
         while True:
@@ -90,7 +96,7 @@ class Rebecca:
                     continue
 
                 if command:
-                    response = self.ask_brain(command)
+                    response = self.cognitive.respond(command)
                     print(f"Rebecca: {response}")
 
             except KeyboardInterrupt:

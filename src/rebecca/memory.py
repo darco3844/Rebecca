@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from pathlib import Path
 from datetime import datetime
@@ -9,6 +10,7 @@ class Memory:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.connection = sqlite3.connect(self.database_path)
+
         self._create_tables()
 
     def _create_tables(self):
@@ -31,6 +33,21 @@ class Memory:
 
         cursor.execute(
             """
+            SELECT id
+            FROM memories
+            WHERE content = ?
+            LIMIT 1
+            """,
+            (content,),
+        )
+
+        existing = cursor.fetchone()
+
+        if existing:
+            return existing[0]
+
+        cursor.execute(
+            """
             INSERT INTO memories
             (content, memory_type, importance, created_at)
             VALUES (?, ?, ?, ?)
@@ -45,18 +62,78 @@ class Memory:
 
         self.connection.commit()
 
+        return cursor.lastrowid
+
     def search(self, text, limit=10):
+        words = re.findall(r"[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9]+", text.lower())
+
+        stopwords = {
+            "que",
+            "qué",
+            "como",
+            "cómo",
+            "cual",
+            "cuál",
+            "cuales",
+            "cuáles",
+            "de",
+            "del",
+            "la",
+            "el",
+            "los",
+            "las",
+            "un",
+            "una",
+            "unos",
+            "unas",
+            "mi",
+            "mis",
+            "tu",
+            "tus",
+            "yo",
+            "me",
+            "te",
+            "es",
+            "son",
+            "en",
+            "y",
+            "o",
+            "a",
+            "por",
+            "para",
+            "con",
+            "sobre",
+            "recuerdas",
+            "recuerdo",
+        }
+
+        keywords = [
+            word
+            for word in words
+            if word not in stopwords and len(word) > 2
+        ]
+
+        if not keywords:
+            return self.recent(limit)
+
+        conditions = " OR ".join(
+            ["LOWER(content) LIKE ?" for _ in keywords]
+        )
+
+        parameters = [f"%{keyword}%" for keyword in keywords]
+        parameters.append(limit)
+
         cursor = self.connection.cursor()
 
         cursor.execute(
-            """
+            f"""
             SELECT id, content, memory_type, importance, created_at
             FROM memories
-            WHERE content LIKE ?
+            WHERE {conditions}
             ORDER BY importance DESC, created_at DESC
             LIMIT ?
             """,
-            (f"%{text}%", limit),
+            parameters,
         )
 
         return cursor.fetchall()
