@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+
+data/memory/
+data/journal/
+data/knowledge/
+data/config/
+
+logs/
+
+.env
+*.key
+*.token
+models/
