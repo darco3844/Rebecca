@@ -12,6 +12,7 @@ class Memory:
         self.connection = sqlite3.connect(self.database_path)
 
         self._create_tables()
+        self._migrate_tables()
 
     def _create_tables(self):
         cursor = self.connection.cursor()
@@ -28,8 +29,53 @@ class Memory:
 
         self.connection.commit()
 
-    def remember(self, content, memory_type="general", importance=5):
+    def _migrate_tables(self):
         cursor = self.connection.cursor()
+
+        cursor.execute("PRAGMA table_info(memories)")
+        columns = [column[1] for column in cursor.fetchall()]
+
+        if "memory_key" not in columns:
+            cursor.execute(
+                """
+                ALTER TABLE memories
+                ADD COLUMN memory_key TEXT
+                """
+            )
+
+        self.connection.commit()
+
+    def remember(
+        self,
+        content,
+        memory_type="general",
+        importance=5,
+        memory_key=None,
+    ):
+        cursor = self.connection.cursor()
+
+        if memory_key:
+            cursor.execute(
+                """
+                SELECT id
+                FROM memories
+                WHERE memory_key = ?
+                LIMIT 1
+                """,
+                (memory_key,),
+            )
+
+            existing = cursor.fetchone()
+
+            if existing:
+                self.update(
+                    existing[0],
+                    content=content,
+                    memory_type=memory_type,
+                    importance=importance,
+                )
+
+                return existing[0]
 
         cursor.execute(
             """
@@ -49,14 +95,15 @@ class Memory:
         cursor.execute(
             """
             INSERT INTO memories
-            (content, memory_type, importance, created_at)
-            VALUES (?, ?, ?, ?)
+            (content, memory_type, importance, created_at, memory_key)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 content,
                 memory_type,
                 importance,
                 datetime.now().isoformat(),
+                memory_key,
             ),
         )
 
@@ -65,7 +112,10 @@ class Memory:
         return cursor.lastrowid
 
     def search(self, text, limit=10):
-        words = re.findall(r"[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9]+", text.lower())
+        words = re.findall(
+            r"[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9]+",
+            text.lower(),
+        )
 
         stopwords = {
             "que",
@@ -120,14 +170,24 @@ class Memory:
             ["LOWER(content) LIKE ?" for _ in keywords]
         )
 
-        parameters = [f"%{keyword}%" for keyword in keywords]
+        parameters = [
+            f"%{keyword}%"
+            for keyword in keywords
+        ]
+
         parameters.append(limit)
 
         cursor = self.connection.cursor()
 
         cursor.execute(
             f"""
-            SELECT id, content, memory_type, importance, created_at
+            SELECT
+                id,
+                content,
+                memory_type,
+                importance,
+                created_at,
+                memory_key
             FROM memories
             WHERE {conditions}
             ORDER BY importance DESC, created_at DESC
@@ -143,7 +203,13 @@ class Memory:
 
         cursor.execute(
             """
-            SELECT id, content, memory_type, importance, created_at
+            SELECT
+                id,
+                content,
+                memory_type,
+                importance,
+                created_at,
+                memory_key
             FROM memories
             ORDER BY created_at DESC
             LIMIT ?
@@ -152,6 +218,103 @@ class Memory:
         )
 
         return cursor.fetchall()
+
+    def get_by_key(self, memory_key):
+        cursor = self.connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                content,
+                memory_type,
+                importance,
+                created_at,
+                memory_key
+            FROM memories
+            WHERE memory_key = ?
+            LIMIT 1
+            """,
+            (memory_key,),
+        )
+
+        return cursor.fetchone()
+
+    def update(
+        self,
+        memory_id,
+        content=None,
+        memory_type=None,
+        importance=None,
+        memory_key=None,
+    ):
+        cursor = self.connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                content,
+                memory_type,
+                importance,
+                memory_key
+            FROM memories
+            WHERE id = ?
+            """,
+            (memory_id,),
+        )
+
+        existing = cursor.fetchone()
+
+        if not existing:
+            return False
+
+        old_content, old_type, old_importance, old_key = existing
+
+        new_content = (
+            content
+            if content is not None
+            else old_content
+        )
+
+        new_type = (
+            memory_type
+            if memory_type is not None
+            else old_type
+        )
+
+        new_importance = (
+            importance
+            if importance is not None
+            else old_importance
+        )
+
+        new_key = (
+            memory_key
+            if memory_key is not None
+            else old_key
+        )
+
+        cursor.execute(
+            """
+            UPDATE memories
+            SET content = ?,
+                memory_type = ?,
+                importance = ?,
+                memory_key = ?
+            WHERE id = ?
+            """,
+            (
+                new_content,
+                new_type,
+                new_importance,
+                new_key,
+                memory_id,
+            ),
+        )
+
+        self.connection.commit()
+
+        return True
 
     def forget(self, memory_id):
         cursor = self.connection.cursor()

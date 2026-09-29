@@ -1,0 +1,60 @@
+from pathlib import Path
+
+
+class Knowledge:
+    def __init__(self, knowledge_path="data/knowledge"):
+        self.knowledge_path = Path(knowledge_path)
+        self.knowledge_path.mkdir(parents=True, exist_ok=True)
+
+        self.project_file = self.knowledge_path / "project.txt"
+
+        self._create_default_knowledge()
+
+    def _create_default_knowledge(self):
+        if self.project_file.exists():
+            return
+
+        content = """Proyecto: Rebecca
+
+Rebecca es un asistente de inteligencia artificial local desarrollado por Emi.
+
+Objetivo:
+Construir un asistente personal capaz de conversar, recordar información,
+utilizar contexto, aprender de experiencias y posteriormente interactuar
+con herramientas y dispositivos.
+
+Arquitectura actual:
+- Cerebro: Qwen3-4B-Q4_K_M ejecutándose localmente.
+- Motor de inferencia: llama-server.
+- Memoria a largo plazo: SQLite.
+- Cognición: CognitiveEngine.
+- Memoria conversacional: Conversation.
+- Lenguaje principal: español.
+
+Estado actual:
+El cerebro local está conectado.
+La memoria persistente está funcionando.
+La memoria conversacional está funcionando.
+El sistema cognitivo utiliza recuerdos relevantes para generar respuestas.
+
+Próximos objetivos:
+- Mejorar el contexto conversacional.
+- Integrar conocimiento permanente.
+- Desarrollar una personalidad consistente.
+- Mejorar el sistema de memoria.
+- Añadir herramientas.
+- Añadir voz.
+- Añadir visión.
+- Añadir interacción con el sistema.
+- Preparar una arquitectura compatible con un futuro cuerpo digital.
+"""
+
+        self.project_file.write_text(
+            content,
+            encoding="utf-8",
+        )
+
+    def get_project_knowledge(self):
+        return self.project_file.read_text(
+            encoding="utf-8"
+        )

@@ -1,5 +1,4 @@
 import json
-import subprocess
 import urllib.request
 
 
@@ -10,16 +9,11 @@ class Brain:
     ):
         self.server_url = server_url
 
-    def ask(self, prompt):
+    def ask(self, messages):
         url = f"{self.server_url}/v1/chat/completions"
 
         data = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            "messages": messages,
             "temperature": 0.7,
             "max_tokens": 256,
         }
@@ -35,7 +29,9 @@ class Brain:
 
         try:
             with urllib.request.urlopen(request) as response:
-                result = json.loads(response.read().decode("utf-8"))
+                result = json.loads(
+                    response.read().decode("utf-8")
+                )
 
             return result["choices"][0]["message"]["content"].strip()
 

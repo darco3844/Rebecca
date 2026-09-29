@@ -75,26 +75,6 @@ class Rebecca:
                     self.memory.close()
                     break
 
-                if command.lower().startswith("recuerda "):
-                    content = command[9:].strip()
-
-                    if content:
-                        print(f"Rebecca: {self.remember(content)}")
-                    else:
-                        print("Rebecca: ¿Qué quieres que recuerde?")
-
-                    continue
-
-                if command.lower().startswith("recuerdas "):
-                    search_text = command[10:].strip()
-
-                    if search_text:
-                        print(f"Rebecca: {self.recall(search_text)}")
-                    else:
-                        print("Rebecca: ¿Qué quieres que busque en mi memoria?")
-
-                    continue
-
                 if command:
                     response = self.cognitive.respond(command)
                     print(f"Rebecca: {response}")
