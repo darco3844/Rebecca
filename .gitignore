@@ -13,3 +13,7 @@ logs/
 *.key
 *.token
 models/
+
+data/test_permiso.txt
+data/test_rebecca.txt
+src/rebecca/cognitive.py.bak
