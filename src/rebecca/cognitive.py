@@ -15,6 +15,7 @@ from src.rebecca.tools.file_path import FilePathExtractor
 from src.rebecca.context import ContextBuilder
 from src.rebecca.tool_executor import ToolExecutor
 from src.rebecca.tool_planner import ToolPlanner
+from src.rebecca.plugins.manager import PluginManager
 
 
 class CognitiveEngine:
@@ -24,6 +25,7 @@ class CognitiveEngine:
         brain=None,
         max_permission="safe",
         conversation=None,
+        plugin_modules=None,
     ):
         self.identity = Identity()
         self.knowledge = Knowledge()
@@ -66,8 +68,21 @@ class CognitiveEngine:
         self.task_state = TaskState()
 
         self.tool_intent = ToolIntentDetector()
+
         self.tools = ToolManager()
-        self.file_path_extractor = FilePathExtractor()
+
+        self.plugins = PluginManager(
+            self.tools
+        )
+
+        self.file_path_extractor = (
+            FilePathExtractor()
+        )
+
+        if plugin_modules:
+            self._load_plugins(
+                plugin_modules
+            )
 
         self.tool_planner = None
 
@@ -80,7 +95,9 @@ class CognitiveEngine:
         self.tool_executor = ToolExecutor(
             tool_intent=self.tool_intent,
             tools=self.tools,
-            file_path_extractor=self.file_path_extractor,
+            file_path_extractor=(
+                self.file_path_extractor
+            ),
             max_permission=self.max_permission,
             planner=self.tool_planner,
         )
@@ -169,6 +186,15 @@ class CognitiveEngine:
         )
 
         return response
+
+    def _load_plugins(
+        self,
+        plugin_modules,
+    ):
+        for module_name in plugin_modules:
+            self.plugins.load_module(
+                module_name
+            )
 
     def _ensure_tool_planner(self):
         if self.brain is None:

@@ -97,6 +97,14 @@ class ToolManager:
 
         self.tools[tool.name] = tool
 
+    def unregister(self, name):
+        if name not in self.tools:
+            return False
+
+        del self.tools[name]
+
+        return True
+
     def has_tool(self, name):
         return name in self.tools
 
@@ -104,7 +112,9 @@ class ToolManager:
         return self.tools.get(name)
 
     def list_tools(self):
-        return list(self.tools.keys())
+        return list(
+            self.tools.keys()
+        )
 
     def describe_tools(self):
         return [
