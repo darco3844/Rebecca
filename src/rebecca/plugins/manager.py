@@ -2,8 +2,13 @@ import importlib
 
 
 class PluginManager:
-    def __init__(self, tool_manager):
+    def __init__(
+        self,
+        tool_manager,
+        config=None,
+    ):
         self.tool_manager = tool_manager
+        self.config = config
         self.plugins = {}
         self.plugin_tools = {}
 
@@ -23,29 +28,52 @@ class PluginManager:
                 "ya está registrado."
             )
 
+        if (
+            self.config is not None
+            and not self.config.is_enabled(
+                plugin.name
+            )
+        ):
+            return False
+
         tools = plugin.get_tools()
 
-        for tool in tools:
-            self.tool_manager.register(
-                tool
-            )
+        registered_tools = []
 
         try:
+            for tool in tools:
+                permission = self._get_permission(
+                    plugin.name,
+                    tool.name,
+                    tool.permission,
+                )
+
+                self.tool_manager.register(
+                    tool,
+                    permission=permission,
+                )
+
+                registered_tools.append(
+                    tool.name
+                )
+
             plugin.initialize()
 
         except Exception:
-            for tool in tools:
+            for tool_name in registered_tools:
                 self.tool_manager.unregister(
-                    tool.name
+                    tool_name
                 )
 
             raise
 
         self.plugins[plugin.name] = plugin
-        self.plugin_tools[plugin.name] = [
-            tool.name
-            for tool in tools
-        ]
+
+        self.plugin_tools[
+            plugin.name
+        ] = registered_tools
+
+        return True
 
     def unregister(self, name):
         plugin = self.plugins.get(name)
@@ -66,6 +94,7 @@ class PluginManager:
             )
 
         del self.plugins[name]
+
         self.plugin_tools.pop(
             name,
             None,
@@ -109,6 +138,21 @@ class PluginManager:
 
         plugin = plugin_class()
 
-        self.register(plugin)
+        return self.register(
+            plugin
+        )
 
-        return plugin
+    def _get_permission(
+        self,
+        plugin_name,
+        tool_name,
+        default,
+    ):
+        if self.config is None:
+            return default
+
+        return self.config.get_permission(
+            plugin_name,
+            tool_name,
+            default=default,
+        )
