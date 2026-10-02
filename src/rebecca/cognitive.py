@@ -16,6 +16,8 @@ from src.rebecca.context import ContextBuilder
 from src.rebecca.tool_executor import ToolExecutor
 from src.rebecca.tool_planner import ToolPlanner
 from src.rebecca.plugins.manager import PluginManager
+from src.rebecca.config.plugin_config import PluginConfig
+from src.rebecca.config.secret_manager import SecretManager
 
 
 class CognitiveEngine:
@@ -26,6 +28,8 @@ class CognitiveEngine:
         max_permission="safe",
         conversation=None,
         plugin_modules=None,
+        plugin_config=None,
+        secret_manager=None,
     ):
         self.identity = Identity()
         self.knowledge = Knowledge()
@@ -71,8 +75,20 @@ class CognitiveEngine:
 
         self.tools = ToolManager()
 
+        if plugin_config is None:
+            self.plugin_config = PluginConfig()
+        else:
+            self.plugin_config = plugin_config
+
+        if secret_manager is None:
+            self.secret_manager = SecretManager()
+        else:
+            self.secret_manager = secret_manager
+
         self.plugins = PluginManager(
-            self.tools
+            self.tools,
+            config=self.plugin_config,
+            secrets=self.secret_manager,
         )
 
         self.file_path_extractor = (

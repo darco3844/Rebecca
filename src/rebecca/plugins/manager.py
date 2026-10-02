@@ -6,9 +6,12 @@ class PluginManager:
         self,
         tool_manager,
         config=None,
+        secrets=None,
     ):
         self.tool_manager = tool_manager
         self.config = config
+        self.secrets = secrets
+
         self.plugins = {}
         self.plugin_tools = {}
 
@@ -35,6 +38,10 @@ class PluginManager:
             )
         ):
             return False
+
+        self._inject_dependencies(
+            plugin
+        )
 
         tools = plugin.get_tools()
 
@@ -141,6 +148,13 @@ class PluginManager:
         return self.register(
             plugin
         )
+
+    def _inject_dependencies(
+        self,
+        plugin,
+    ):
+        plugin.config = self.config
+        plugin.secrets = self.secrets
 
     def _get_permission(
         self,

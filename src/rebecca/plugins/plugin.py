@@ -3,6 +3,9 @@ class Plugin:
     description = ""
     version = "1.0.0"
 
+    config = None
+    secrets = None
+
     def initialize(self):
         pass
 
