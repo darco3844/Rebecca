@@ -1,168 +1,127 @@
 from src.rebecca.conversation import Conversation
 from src.rebecca.knowledge import Knowledge
 from src.rebecca.identity import Identity
+from src.rebecca.memory import Memory
 from src.rebecca.memory_manager import MemoryManager
 from src.rebecca.intent import IntentDetector
 from src.rebecca.memory_classifier import MemoryClassifier
+from src.rebecca.memory_decision import MemoryDecision
+from src.rebecca.episodic_memory import EpisodicMemory
+from src.rebecca.working_memory import WorkingMemory
+from src.rebecca.task_state import TaskState
+from src.rebecca.tool_intent import ToolIntentDetector
+from src.rebecca.tools.manager import ToolManager
+from src.rebecca.tools.file_path import FilePathExtractor
+from src.rebecca.context import ContextBuilder
+from src.rebecca.tool_executor import ToolExecutor
+from src.rebecca.tool_planner import ToolPlanner
 
 
 class CognitiveEngine:
-    def __init__(self, memory, brain):
-        self.memory = MemoryManager(memory)
-        self.brain = brain
-
-        self.conversation = Conversation(max_messages=10)
-        self.knowledge = Knowledge()
+    def __init__(
+        self,
+        memory=None,
+        brain=None,
+        max_permission="safe",
+        conversation=None,
+    ):
         self.identity = Identity()
+        self.knowledge = Knowledge()
+
+        if memory is None:
+            memory_database = Memory()
+            self.memory = MemoryManager(
+                memory_database
+            )
+
+        elif isinstance(
+            memory,
+            MemoryManager,
+        ):
+            self.memory = memory
+            memory_database = memory.memory
+
+        else:
+            memory_database = memory
+            self.memory = MemoryManager(
+                memory_database
+            )
+
+        self.brain = brain
+        self.max_permission = max_permission
+
         self.intent = IntentDetector()
+
         self.classifier = MemoryClassifier()
 
-    def respond(self, user_input):
-        intent = self.intent.detect(user_input)
-
-        # RECORDAR
-        if intent == "remember":
-            content = self._extract_memory_content(user_input)
-
-            if not content:
-                return "¿Qué quieres que recuerde?"
-
-            memory_type = self.classifier.classify(content)
-            memory_key = self.classifier.generate_key(
-                content,
-                memory_type,
-            )
-
-            memory_id = self.memory.remember(
-                content,
-                memory_type=memory_type,
-                importance=10,
-                memory_key=memory_key,
-            )
-
-            if memory_key:
-                return (
-                    f"Lo recordaré. Memoria #{memory_id}. "
-                    f"Tipo: {memory_type}. "
-                    f"Clave: {memory_key}."
-                )
-
-            return (
-                f"Lo recordaré. Memoria #{memory_id}. "
-                f"Tipo: {memory_type}."
-            )
-
-        # CONSULTAR MEMORIA
-        if intent == "recall_memory":
-            memories = self.memory.search(
-                user_input,
-                limit=10,
-            )
-
-            if not memories:
-                return "No encontré recuerdos relacionados."
-
-            response = "Esto es lo que recuerdo:\n"
-
-            for memory in memories:
-                (
-                    memory_id,
-                    content,
-                    memory_type,
-                    importance,
-                    created_at,
-                    memory_key,
-                ) = memory
-
-                response += (
-                    f"[{memory_id}] "
-                    f"{content} "
-                    f"(tipo: {memory_type})\n"
-                )
-
-            return response.strip()
-
-        # OLVIDAR
-        if intent == "forget_memory":
-            words = user_input.split()
-
-            memory_id = None
-
-            for word in words:
-                clean_word = word.strip(".,!?¿¡#")
-
-                if clean_word.isdigit():
-                    memory_id = int(clean_word)
-                    break
-
-            if memory_id is None:
-                return (
-                    "Necesito el número del recuerdo que quieres olvidar. "
-                    "Por ejemplo: 'olvida el recuerdo 12'."
-                )
-
-            memory = self.memory.get_memory(memory_id)
-
-            if memory is None:
-                return f"No encontré el recuerdo #{memory_id}."
-
-            self.memory.forget(memory_id)
-
-            return (
-                f"He olvidado el recuerdo #{memory_id}: "
-                f"{memory[1]}"
-            )
-
-        # MEMORIA PARA CONVERSACIÓN NORMAL
-        memories = self.memory.search(
-            user_input,
-            limit=5,
+        self.decision = MemoryDecision(
+            classifier=self.classifier
         )
 
-        system_context = self.identity.get_context()
+        self.episodes = EpisodicMemory(
+            memory_database
+        )
 
-        system_context += f"""
+        self.working_memory = WorkingMemory()
+        self.task_state = TaskState()
 
-Intención detectada:
-{intent}
+        self.tool_intent = ToolIntentDetector()
+        self.tools = ToolManager()
+        self.file_path_extractor = FilePathExtractor()
 
-Reglas de respuesta:
+        self.tool_planner = None
 
-Responde directamente al mensaje de Emi.
+        if self.brain is not None:
+            self.tool_planner = ToolPlanner(
+                brain=self.brain,
+                tools=self.tools,
+            )
 
-No repitas la pregunta de Emi antes de responder.
+        self.tool_executor = ToolExecutor(
+            tool_intent=self.tool_intent,
+            tools=self.tools,
+            file_path_extractor=self.file_path_extractor,
+            max_permission=self.max_permission,
+            planner=self.tool_planner,
+        )
 
-No inventes información.
+        if conversation is None:
+            self.conversation = Conversation()
 
-No inventes recuerdos.
+        else:
+            self.conversation = conversation
 
-Utiliza los recuerdos proporcionados cuando sean relevantes.
+        self.context = ContextBuilder(
+            identity=self.identity,
+            knowledge=self.knowledge,
+            memory=self.memory,
+            working_memory=self.working_memory,
+            episodes=self.episodes,
+            task_state=self.task_state,
+        )
 
-Si la información no está disponible, dilo honestamente.
-"""
+    def respond(self, user_input):
+        user_input = user_input.strip()
 
-        if memories:
-            system_context += "\nRecuerdos relevantes de Emi:\n"
+        if not user_input:
+            return "No recibí ningún mensaje."
 
-            for memory in memories:
-                (
-                    memory_id,
-                    content,
-                    memory_type,
-                    importance,
-                    created_at,
-                    memory_key,
-                ) = memory
+        if self.tool_planner is None:
+            self._ensure_tool_planner()
 
-                system_context += (
-                    f"- {content} "
-                    f"(tipo: {memory_type})\n"
-                )
+        tool = self.tool_executor.execute(
+            user_input
+        )
 
-        project_knowledge = self.knowledge.get_project_knowledge()
+        system_context = self.context.build(
+            user_input,
+            tool_context=tool["context"],
+            include_extended_context=not tool["used"],
+        )
 
-        system_context += "\nConocimiento del proyecto Rebecca:\n"
-        system_context += project_knowledge
+        self.conversation.add_user_message(
+            user_input
+        )
 
         messages = [
             {
@@ -171,32 +130,65 @@ Si la información no está disponible, dilo honestamente.
             }
         ]
 
-        self.conversation.add_user_message(user_input)
+        messages.extend(
+            self.conversation.get_messages()
+        )
 
-        for message in self.conversation.get_messages():
-            messages.append({
-                "role": message["role"],
-                "content": message["content"],
-            })
+        response = self._ask_brain(
+            messages
+        )
 
-        response = self.brain.ask(messages)
+        self.conversation.add_assistant_message(
+            response
+        )
 
-        self.conversation.add_assistant_message(response)
+        decision = self.decision.decide(
+            user_input
+        )
+
+        if decision["should_remember"]:
+            self.memory.remember(
+                user_input,
+                memory_type=decision[
+                    "memory_type"
+                ],
+                importance=decision[
+                    "importance"
+                ],
+                memory_key=decision[
+                    "memory_key"
+                ],
+                memory_level=decision[
+                    "memory_level"
+                ],
+            )
+
+        self.working_memory.add(
+            user_input,
+            importance=5,
+        )
 
         return response
 
-    def _extract_memory_content(self, user_input):
-        prefixes = [
-            "recuerda ",
-            "acuérdate de ",
-            "acuerdate de ",
-            "guarda ",
-        ]
+    def _ensure_tool_planner(self):
+        if self.brain is None:
+            from src.rebecca.brain import Brain
 
-        text = user_input.strip()
+            self.brain = Brain()
 
-        for prefix in prefixes:
-            if text.lower().startswith(prefix):
-                return text[len(prefix):].strip()
+        self.tool_planner = ToolPlanner(
+            brain=self.brain,
+            tools=self.tools,
+        )
 
-        return text
+        self.tool_executor.planner = (
+            self.tool_planner
+        )
+
+    def _ask_brain(self, messages):
+        if self.brain is None:
+            from src.rebecca.brain import Brain
+
+            self.brain = Brain()
+
+        return self.brain.ask(messages)

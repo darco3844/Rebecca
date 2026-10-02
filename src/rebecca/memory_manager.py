@@ -8,12 +8,14 @@ class MemoryManager:
         memory_type="general",
         importance=5,
         memory_key=None,
+        memory_level="long_term",
     ):
         return self.memory.remember(
             content,
             memory_type=memory_type,
             importance=importance,
             memory_key=memory_key,
+            memory_level=memory_level,
         )
 
     def search(self, text, limit=10):
@@ -46,6 +48,7 @@ class MemoryManager:
         memory_type=None,
         importance=None,
         memory_key=None,
+        memory_level=None,
     ):
         return self.memory.update(
             memory_id,
@@ -53,6 +56,7 @@ class MemoryManager:
             memory_type=memory_type,
             importance=importance,
             memory_key=memory_key,
+            memory_level=memory_level,
         )
 
     def forget(self, memory_id):

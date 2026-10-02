@@ -36,12 +36,16 @@ class Memory:
         columns = [column[1] for column in cursor.fetchall()]
 
         if "memory_key" not in columns:
-            cursor.execute(
-                """
+            cursor.execute("""
                 ALTER TABLE memories
                 ADD COLUMN memory_key TEXT
-                """
-            )
+            """)
+
+        if "memory_level" not in columns:
+            cursor.execute("""
+                ALTER TABLE memories
+                ADD COLUMN memory_level TEXT DEFAULT 'long_term'
+            """)
 
         self.connection.commit()
 
@@ -51,6 +55,7 @@ class Memory:
         memory_type="general",
         importance=5,
         memory_key=None,
+        memory_level="long_term",
     ):
         cursor = self.connection.cursor()
 
@@ -73,6 +78,8 @@ class Memory:
                     content=content,
                     memory_type=memory_type,
                     importance=importance,
+                    memory_key=memory_key,
+                    memory_level=memory_level,
                 )
 
                 return existing[0]
@@ -95,8 +102,15 @@ class Memory:
         cursor.execute(
             """
             INSERT INTO memories
-            (content, memory_type, importance, created_at, memory_key)
-            VALUES (?, ?, ?, ?, ?)
+            (
+                content,
+                memory_type,
+                importance,
+                created_at,
+                memory_key,
+                memory_level
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 content,
@@ -104,6 +118,7 @@ class Memory:
                 importance,
                 datetime.now().isoformat(),
                 memory_key,
+                memory_level,
             ),
         )
 
@@ -187,7 +202,8 @@ class Memory:
                 memory_type,
                 importance,
                 created_at,
-                memory_key
+                memory_key,
+                memory_level
             FROM memories
             WHERE {conditions}
             ORDER BY importance DESC, created_at DESC
@@ -209,7 +225,8 @@ class Memory:
                 memory_type,
                 importance,
                 created_at,
-                memory_key
+                memory_key,
+                memory_level
             FROM memories
             ORDER BY created_at DESC
             LIMIT ?
@@ -230,7 +247,8 @@ class Memory:
                 memory_type,
                 importance,
                 created_at,
-                memory_key
+                memory_key,
+                memory_level
             FROM memories
             WHERE memory_key = ?
             LIMIT 1
@@ -247,6 +265,7 @@ class Memory:
         memory_type=None,
         importance=None,
         memory_key=None,
+        memory_level=None,
     ):
         cursor = self.connection.cursor()
 
@@ -256,7 +275,8 @@ class Memory:
                 content,
                 memory_type,
                 importance,
-                memory_key
+                memory_key,
+                memory_level
             FROM memories
             WHERE id = ?
             """,
@@ -268,7 +288,13 @@ class Memory:
         if not existing:
             return False
 
-        old_content, old_type, old_importance, old_key = existing
+        (
+            old_content,
+            old_type,
+            old_importance,
+            old_key,
+            old_level,
+        ) = existing
 
         new_content = (
             content
@@ -294,13 +320,20 @@ class Memory:
             else old_key
         )
 
+        new_level = (
+            memory_level
+            if memory_level is not None
+            else old_level
+        )
+
         cursor.execute(
             """
             UPDATE memories
             SET content = ?,
                 memory_type = ?,
                 importance = ?,
-                memory_key = ?
+                memory_key = ?,
+                memory_level = ?
             WHERE id = ?
             """,
             (
@@ -308,6 +341,7 @@ class Memory:
                 new_type,
                 new_importance,
                 new_key,
+                new_level,
                 memory_id,
             ),
         )
