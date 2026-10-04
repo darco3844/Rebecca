@@ -3,155 +3,319 @@ import unicodedata
 
 
 class ToolIntentDetector:
-    INTENTS = {
-        "system_info": [
-            "sistema operativo",
-            "sistema",
-            "linux",
-            "cachyos",
-            "distribucion",
-            "kernel",
-            "hostname",
-            "arquitectura",
-        ],
-        "memory_info": [
-            "ram",
-            "memoria ram",
-            "memoria disponible",
-            "memoria libre",
-            "memoria usada",
-            "memoria utilizada",
-        ],
-        "disk_info": [
-            "disco",
-            "discos",
-            "almacenamiento",
-            "espacio libre",
-            "espacio disponible",
-            "espacio usado",
-            "espacio utilizado",
-        ],
-        "cpu_info": [
-            "cpu",
-            "procesador",
-            "procesadores",
-            "nucleos",
-            "hilos",
-            "chip",
-        ],
-        "process_info": [
-            "procesos",
-            "proceso",
-            "programas ejecutandose",
-            "programas activos",
-            "programas corriendo",
-            "programas que estan corriendo",
-            "programas que estan activos",
-            "que programas estan corriendo",
-            "que programas estan activos",
-            "que esta ejecutandose",
-            "que esta corriendo",
-            "que procesos estan corriendo",
-            "que procesos estan activos",
-            "procesos activos",
-            "procesos corriendo",
-            "procesos ejecutandose",
-        ],
-        "file_write": [
+    TOOL_PATTERNS = {
+        "file_delete": (
+            "elimina el archivo",
+            "eliminar el archivo",
+            "borra el archivo",
+            "borrar el archivo",
+            "elimina este archivo",
+            "eliminar este archivo",
+            "borra este archivo",
+            "borrar este archivo",
+        ),
+
+        "file_modify": (
+            "sobrescribe el archivo",
+            "sobrescribir el archivo",
+            "modifica el archivo",
+            "modificar el archivo",
+            "cambia el contenido del archivo",
+            "cambiar el contenido del archivo",
+            "reemplaza el contenido del archivo",
+            "reemplazar el contenido del archivo",
+            "edita el archivo",
+            "editar el archivo",
+        ),
+
+        "file_write": (
             "crea un archivo",
             "crear un archivo",
-            "crea archivo",
-            "crear archivo",
-            "escribe en el archivo",
-            "escribir en el archivo",
-            "escribe el archivo",
-            "escribir el archivo",
-            "guarda en el archivo",
-            "guardar en el archivo",
-            "guarda esto en",
-            "guardar esto en",
-            "crea un texto",
-            "crear un texto",
-        ],
-        "file_read": [
+            "escribe un archivo",
+            "escribir un archivo",
+            "guarda en un archivo",
+            "guardar en un archivo",
+        ),
+
+        "file_read": (
             "lee el archivo",
             "leer el archivo",
-            "lee archivo",
-            "leer archivo",
-            "muestrame el archivo",
+            "abre el archivo",
+            "abrir el archivo",
+            "muestra el archivo",
             "mostrar el archivo",
             "contenido del archivo",
-            "que dice el archivo",
-            "abre el archivo",
-        ],
-        "file_info": [
-            "archivos",
-            "archivo",
-            "carpeta",
-            "carpetas",
-            "directorio",
-            "directorios",
-            "que hay en",
-            "que contiene",
-            "lista los archivos",
-            "listar archivos",
-        ],
+        ),
+
+        "file_info": (
+            "informacion del archivo",
+            "información del archivo",
+            "datos del archivo",
+            "tamaño del archivo",
+            "tamano del archivo",
+            "que contiene el archivo",
+            "qué contiene el archivo",
+        ),
+
+        "gmail_read": (
+            "lee el correo",
+            "leer el correo",
+            "abre el correo",
+            "abrir el correo",
+            "muestra el correo",
+            "mostrar el correo",
+            "lee este correo",
+            "leer este correo",
+            "abre este correo",
+            "abrir este correo",
+        ),
+
+        "gmail_search": (
+            "busca en gmail",
+            "buscar en gmail",
+            "busca correos",
+            "buscar correos",
+            "busca correo",
+            "buscar correo",
+            "buscame un correo",
+            "buscame correos",
+            "busca un correo",
+            "buscar un correo",
+            "busca emails",
+            "buscar emails",
+            "busca email",
+            "buscar email",
+            "busca mensajes",
+            "buscar mensajes",
+            "busca mis correos",
+            "buscar mis correos",
+            "busca mis emails",
+            "buscar mis emails",
+            "busca mis mensajes",
+            "buscar mis mensajes",
+            "buscame mis correos",
+            "buscame mis emails",
+            "buscame mis mensajes",
+        ),
+
+        "web_open": (
+            "abre la pagina",
+            "abrir la pagina",
+            "abre la página",
+            "abrir la página",
+            "abre el sitio",
+            "abrir el sitio",
+            "abre esta pagina",
+            "abrir esta pagina",
+            "abre esta página",
+            "abrir esta página",
+            "abre este sitio",
+            "abrir este sitio",
+            "abre la url",
+            "abrir la url",
+            "abre este enlace",
+            "abrir este enlace",
+            "abre el resultado",
+            "abrir el resultado",
+            "abre el resultado numero",
+            "abrir el resultado numero",
+            "abre el resultado número",
+            "abrir el resultado número",
+        ),
+
+        "web_search": (
+            "busca en internet",
+            "buscar en internet",
+            "busca en la internet",
+            "buscar en la internet",
+            "busca en la web",
+            "buscar en la web",
+            "busca por internet",
+            "buscar por internet",
+            "busca en google",
+            "buscar en google",
+            "busca en bing",
+            "buscar en bing",
+            "busca en duckduckgo",
+            "buscar en duckduckgo",
+            "investiga en internet",
+            "investigar en internet",
+            "investiga en la web",
+            "investigar en la web",
+            "haz una búsqueda en internet",
+            "haz una busqueda en internet",
+            "haz una búsqueda en la web",
+            "haz una busqueda en la web",
+        ),
+
+        "memory_info": (
+            "memoria ram",
+            "memoria de ram",
+            "ram",
+            "memoria del sistema",
+            "memoria disponible",
+            "memoria utilizada",
+            "uso de memoria",
+            "uso de ram",
+            "cuanta ram tengo",
+            "cuánta ram tengo",
+            "cuanta memoria ram tengo",
+            "cuánta memoria ram tengo",
+            "cuanta memoria tiene mi pc",
+            "cuánta memoria tiene mi pc",
+            "cuanta memoria tiene mi computadora",
+            "cuánta memoria tiene mi computadora",
+            "cuanta memoria estoy usando",
+            "cuánta memoria estoy usando",
+            "cuanta ram estoy usando",
+            "cuánta ram estoy usando",
+            "cuanta memoria esta usando mi pc",
+            "cuánta memoria está usando mi pc",
+            "cuanta memoria usa mi pc",
+            "cuánta memoria usa mi pc",
+            "cuanta memoria esta usando mi computadora",
+            "cuánta memoria está usando mi computadora",
+            "cuanta memoria usa mi computadora",
+            "cuánta memoria usa mi computadora",
+        ),
+
+        "disk_info": (
+            "espacio libre",
+            "espacio del disco",
+            "espacio en disco",
+            "disco duro",
+            "disco",
+            "almacenamiento",
+            "cuanto espacio tengo",
+            "cuánto espacio tengo",
+            "cuanto espacio queda",
+            "cuánto espacio queda",
+        ),
+
+        "cpu_info": (
+            "procesador",
+            "cpu",
+            "procesador tengo",
+            "que procesador tengo",
+            "qué procesador tengo",
+            "informacion del procesador",
+            "información del procesador",
+            "informacion de la cpu",
+            "información de la cpu",
+        ),
+
+        "process_info": (
+            "procesos",
+            "programas corriendo",
+            "programas abiertos",
+            "que programas estan corriendo",
+            "qué programas están corriendo",
+            "que programas tengo abiertos",
+            "qué programas tengo abiertos",
+            "que se esta ejecutando",
+            "qué se está ejecutando",
+            "procesos corriendo",
+            "procesos activos",
+        ),
+
+        "system_info": (
+            "informacion del sistema",
+            "información del sistema",
+            "datos del sistema",
+            "sistema operativo",
+            "que sistema tengo",
+            "qué sistema tengo",
+            "version de linux",
+            "versión de linux",
+            "informacion de mi pc",
+            "información de mi pc",
+        ),
     }
 
-    PRIORITY = [
+    PRIORITY = (
+        "file_delete",
+        "file_modify",
         "file_write",
         "file_read",
         "file_info",
+        "gmail_read",
+        "gmail_search",
+        "web_open",
+        "web_search",
         "memory_info",
         "disk_info",
         "cpu_info",
         "process_info",
         "system_info",
-    ]
+    )
 
-    def detect(self, text):
-        normalized = self._normalize(text)
+    def detect(self, user_input):
+        detected_tools = self.detect_all(
+            user_input
+        )
 
-        if not normalized:
+        if not detected_tools:
             return None
 
-        for intent in self.PRIORITY:
-            phrases = self.INTENTS[intent]
+        return detected_tools[0]
 
-            if self._matches(
-                normalized,
-                phrases,
-            ):
-                return intent
+    def detect_all(self, user_input):
+        normalized = self._normalize(
+            user_input
+        )
 
-        return None
+        detected_tools = []
 
-    def _matches(
-        self,
-        text,
-        phrases,
-    ):
-        for phrase in phrases:
-            if self._phrase_matches(
-                text,
-                phrase,
-            ):
-                return True
+        for tool_name in self.PRIORITY:
+            patterns = self.TOOL_PATTERNS.get(
+                tool_name,
+                (),
+            )
 
-        return False
+            for pattern in patterns:
+                normalized_pattern = (
+                    self._normalize(pattern)
+                )
 
-    def _phrase_matches(
+                if self._contains_phrase(
+                    normalized,
+                    normalized_pattern,
+                ):
+                    detected_tools.append(
+                        tool_name
+                    )
+                    break
+
+        return detected_tools
+
+    def _normalize(self, text):
+        text = text.lower().strip()
+
+        text = unicodedata.normalize(
+            "NFD",
+            text,
+        )
+
+        text = "".join(
+            char
+            for char in text
+            if unicodedata.category(char)
+            != "Mn"
+        )
+
+        text = re.sub(
+            r"\s+",
+            " ",
+            text,
+        )
+
+        return text
+
+    def _contains_phrase(
         self,
         text,
         phrase,
     ):
-        phrase = self._normalize(
-            phrase
-        )
-
-        if not phrase:
-            return False
-
         pattern = (
             r"(?<!\w)"
             + re.escape(phrase)
@@ -163,25 +327,3 @@ class ToolIntentDetector:
             text,
         ) is not None
 
-    def _normalize(self, text):
-        text = str(text).lower().strip()
-
-        text = unicodedata.normalize(
-            "NFD",
-            text,
-        )
-
-        text = "".join(
-            character
-            for character in text
-            if unicodedata.category(character)
-            != "Mn"
-        )
-
-        text = re.sub(
-            r"\s+",
-            " ",
-            text,
-        )
-
-        return text
