@@ -1,19 +1,41 @@
+# Entorno Python
 .venv/
 __pycache__/
 *.pyc
 
-data/memory/
-data/journal/
-data/knowledge/
-data/config/
+# Modelos locales
+models/
 
+# Logs y archivos temporales
 logs/
+*.log
 
+# Secretos y credenciales
 .env
 *.key
 *.token
-models/
+data/config/gmail_credentials.json
 
+# Memoria local de Rebecca
+data/memory/
+
+# Diario local
+data/journal/
+
+# Archivos de pruebas temporales
 data/test_permiso.txt
 data/test_rebecca.txt
+data/prueba_confirmacion.txt
+data/prueba_modificacion.txt
+
+# Backups locales
+Rebecca-backup/
+backups/
+
+# Archivos de editor/sistema
+.vscode/
+.idea/
+.DS_Store
+
+# Backup antiguo
 src/rebecca/cognitive.py.bak

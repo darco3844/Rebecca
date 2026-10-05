@@ -35,6 +35,10 @@ from src.rebecca.ui.widgets.plugins import (
     PluginsWidget,
 )
 
+from src.rebecca.ui.widgets.avatar import (
+    AvatarWidget,
+)
+
 
 class ResponseWorker(QObject):
     finished = Signal(str)
@@ -235,27 +239,6 @@ class ChatWindow(QMainWindow):
             12
         )
 
-        avatar = QFrame()
-
-        avatar.setFixedSize(
-            42,
-            42,
-        )
-
-        avatar.setStyleSheet(
-            """
-            QFrame {
-                background-color: #244d3a;
-                border: 2px solid #55c987;
-                border-radius: 21px;
-            }
-            """
-        )
-
-        layout.addWidget(
-            avatar
-        )
-
         title = QLabel(
             "Rebecca"
         )
@@ -376,6 +359,8 @@ class ChatWindow(QMainWindow):
         self.thread.start()
 
     def _set_thinking_state(self):
+        self.sidebar.avatar.set_state("thinking")
+
         self.header_status.setText(
             "● Rebecca está pensando..."
         )
@@ -409,6 +394,8 @@ class ChatWindow(QMainWindow):
             f"Error: {error}",
         )
 
+        self.sidebar.avatar.set_state("error")
+
         self.header_status.setText(
             "● Error"
         )
@@ -421,6 +408,8 @@ class ChatWindow(QMainWindow):
         )
 
     def _set_online_state(self):
+        self.sidebar.avatar.set_state("idle")
+
         self.header_status.setText(
             "● En línea"
         )

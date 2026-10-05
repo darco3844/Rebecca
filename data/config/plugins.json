@@ -1,0 +1,13 @@
+{
+    "plugins": {
+        "test_plugin": {
+            "enabled": true,
+            "permissions": {
+                "plugin_test": "read"
+            }
+        },
+        "gmail": {
+            "enabled": true
+        }
+    }
+}
