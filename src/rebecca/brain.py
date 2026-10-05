@@ -15,7 +15,7 @@ class Brain:
         data = {
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 256,
+            "max_tokens": 192,
         }
 
         request = urllib.request.Request(
@@ -37,3 +37,4 @@ class Brain:
 
         except Exception as error:
             return f"Error del cerebro: {error}"
+

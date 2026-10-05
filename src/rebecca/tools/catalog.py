@@ -1,3 +1,6 @@
+from src.rebecca.tools.web_open import (
+    WebOpenTool,
+)
 from src.rebecca.tools.system_info import (
     SystemInfoTool,
 )
@@ -21,6 +24,15 @@ from src.rebecca.tools.file_read import (
 )
 from src.rebecca.tools.file_write import (
     FileWriteTool,
+)
+from src.rebecca.tools.file_modify import (
+    FileModifyTool,
+)
+from src.rebecca.tools.file_delete import (
+    FileDeleteTool,
+)
+from src.rebecca.tools.web_search import (
+    WebSearchTool,
 )
 
 
@@ -55,6 +67,23 @@ TOOL_CATALOG = [
     },
     {
         "tool": FileWriteTool,
-        "permission": "safe",
+        "permission": "sensitive",
+    },
+    {
+        "tool": FileModifyTool,
+        "permission": "sensitive",
+    },
+    {
+        "tool": FileDeleteTool,
+        "permission": "sensitive",
+    },
+    {
+        "tool": WebSearchTool,
+        "permission": "read",
+    },
+    {
+        "tool": WebOpenTool,
+        "permission": "read",
     },
 ]
+

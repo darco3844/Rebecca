@@ -11,6 +11,8 @@ class DiskInfoTool(Tool):
         "del almacenamiento."
     )
 
+    permission = "read"
+
     def run(self):
         try:
             total, used, free = shutil.disk_usage(
@@ -58,3 +60,26 @@ class DiskInfoTool(Tool):
             return {
                 "error": str(error)
             }
+
+    def format_result(
+        self,
+        result,
+        user_input="",
+    ):
+        if not isinstance(result, dict):
+            return None
+
+        if result.get("error"):
+            return f"Error: {result['error']}"
+
+        return (
+            "Espacio de almacenamiento:\n\n"
+            f"Total: "
+            f"{result.get('total_gb', 0):.2f} GB\n"
+            f"Usado: "
+            f"{result.get('used_gb', 0):.2f} GB "
+            f"({result.get('used_percent', 0):.2f} %)\n"
+            f"Libre: "
+            f"{result.get('free_gb', 0):.2f} GB"
+        )
+

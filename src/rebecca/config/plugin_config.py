@@ -67,6 +67,14 @@ class PluginConfig:
                 indent=4,
             )
 
+    def list_plugins(self):
+        return list(
+            self.config.get(
+                "plugins",
+                {},
+            ).keys()
+        )
+
     def is_enabled(
         self,
         plugin_name,

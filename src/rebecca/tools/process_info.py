@@ -11,12 +11,12 @@ class ProcessInfoTool(Tool):
         "los procesos activos."
     )
 
+    permission = "read"
+
     def run(self):
         processes = []
 
-        proc_path = Path(
-            "/proc"
-        )
+        proc_path = Path("/proc")
 
         try:
             entries = list(
@@ -58,3 +58,43 @@ class ProcessInfoTool(Tool):
             "processes": processes[:50],
             "count": len(processes),
         }
+
+    def format_result(
+        self,
+        result,
+        user_input="",
+    ):
+        if not isinstance(result, dict):
+            return None
+
+        if result.get("error"):
+            return f"Error: {result['error']}"
+
+        processes = result.get(
+            "processes",
+            [],
+        )
+
+        lines = [
+            "Procesos activos:",
+            "",
+            f"Procesos detectados: "
+            f"{result.get('count', 0)}",
+            "",
+        ]
+
+        for process in processes:
+            lines.append(
+                f"{process.get('pid')}: "
+                f"{process.get('name')}"
+            )
+
+        if result.get("count", 0) > len(processes):
+            lines.extend([
+                "",
+                f"... mostrando los primeros "
+                f"{len(processes)} procesos.",
+            ])
+
+        return "\n".join(lines)
+

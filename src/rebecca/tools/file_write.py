@@ -11,6 +11,8 @@ class FileWriteTool(Tool):
         "del proyecto Rebecca."
     )
 
+    permission = "sensitive"
+
     def prepare_arguments(
         self,
         user_input,
@@ -72,6 +74,27 @@ class FileWriteTool(Tool):
                 "error": str(error)
             }
 
+    def describe_action(
+        self,
+        kwargs,
+    ):
+        path = kwargs.get(
+            "path",
+            "ruta desconocida",
+        )
+
+        content = kwargs.get(
+            "content",
+            "",
+        )
+
+        return (
+            "Voy a crear el archivo:\n"
+            f"{path}\n\n"
+            "Contenido:\n"
+            f"{content}"
+        )
+
     def _extract_write_content(self, text):
         markers = [
             "que diga ",
@@ -93,3 +116,4 @@ class FileWriteTool(Tool):
                 ].strip()
 
         return ""
+

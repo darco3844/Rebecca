@@ -36,6 +36,7 @@ class CognitiveEngine:
 
         if memory is None:
             memory_database = Memory()
+
             self.memory = MemoryManager(
                 memory_database
             )
@@ -49,6 +50,7 @@ class CognitiveEngine:
 
         else:
             memory_database = memory
+
             self.memory = MemoryManager(
                 memory_database
             )
@@ -77,11 +79,13 @@ class CognitiveEngine:
 
         if plugin_config is None:
             self.plugin_config = PluginConfig()
+
         else:
             self.plugin_config = plugin_config
 
         if secret_manager is None:
             self.secret_manager = SecretManager()
+
         else:
             self.secret_manager = secret_manager
 
@@ -90,6 +94,8 @@ class CognitiveEngine:
             config=self.plugin_config,
             secrets=self.secret_manager,
         )
+
+        self.plugins.load_enabled_plugins()
 
         self.file_path_extractor = (
             FilePathExtractor()
@@ -133,7 +139,10 @@ class CognitiveEngine:
             task_state=self.task_state,
         )
 
-    def respond(self, user_input):
+    def respond(
+        self,
+        user_input,
+    ):
         user_input = user_input.strip()
 
         if not user_input:
@@ -146,14 +155,52 @@ class CognitiveEngine:
             user_input
         )
 
+        self.conversation.add_user_message(
+            user_input
+        )
+
+        if tool["used"]:
+            fast_response = (
+                self._format_tool_result(
+                    tool,
+                    user_input,
+                )
+            )
+
+            if fast_response is not None:
+                response = fast_response
+
+            else:
+                response = self._respond_with_brain(
+                    user_input,
+                    tool,
+                )
+
+        else:
+            response = self._respond_with_brain(
+                user_input,
+                tool,
+            )
+
+        self.conversation.add_assistant_message(
+            response
+        )
+
+        self._process_memory(
+            user_input
+        )
+
+        return response
+
+    def _respond_with_brain(
+        self,
+        user_input,
+        tool,
+    ):
         system_context = self.context.build(
             user_input,
             tool_context=tool["context"],
             include_extended_context=not tool["used"],
-        )
-
-        self.conversation.add_user_message(
-            user_input
         )
 
         messages = [
@@ -167,14 +214,64 @@ class CognitiveEngine:
             self.conversation.get_messages()
         )
 
-        response = self._ask_brain(
+        return self._ask_brain(
             messages
         )
 
-        self.conversation.add_assistant_message(
-            response
+    def _format_tool_result(
+        self,
+        tool,
+        user_input,
+    ):
+        tool_name = tool.get(
+            "tool_name"
         )
 
+        if not tool_name:
+            return None
+
+        tool_instance = self.tools.get_tool(
+            tool_name
+        )
+
+        if tool_instance is None:
+            return None
+
+        formatter = getattr(
+            tool_instance,
+            "format_result",
+            None,
+        )
+
+        if formatter is None:
+            return None
+
+        try:
+            response = formatter(
+                tool.get("result"),
+                user_input,
+            )
+
+        except Exception:
+            return None
+
+        if not isinstance(
+            response,
+            str,
+        ):
+            return None
+
+        response = response.strip()
+
+        if not response:
+            return None
+
+        return response
+
+    def _process_memory(
+        self,
+        user_input,
+    ):
         decision = self.decision.decide(
             user_input
         )
@@ -201,8 +298,6 @@ class CognitiveEngine:
             importance=5,
         )
 
-        return response
-
     def _load_plugins(
         self,
         plugin_modules,
@@ -227,10 +322,16 @@ class CognitiveEngine:
             self.tool_planner
         )
 
-    def _ask_brain(self, messages):
+    def _ask_brain(
+        self,
+        messages,
+    ):
         if self.brain is None:
             from src.rebecca.brain import Brain
 
             self.brain = Brain()
 
-        return self.brain.ask(messages)
+        return self.brain.ask(
+            messages
+        )
+

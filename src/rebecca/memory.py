@@ -9,7 +9,7 @@ class Memory:
         self.database_path = Path(database_path)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.connection = sqlite3.connect(self.database_path)
+        self.connection = sqlite3.connect(self.database_path, check_same_thread=False)
 
         self._create_tables()
         self._migrate_tables()
