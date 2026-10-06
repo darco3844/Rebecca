@@ -39,3 +39,5 @@ Rebecca-backup/
 
 # Backup antiguo
 src/rebecca/cognitive.py.bak
+
+rclone_google_credentials.json
