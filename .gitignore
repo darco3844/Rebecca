@@ -29,8 +29,8 @@ data/prueba_confirmacion.txt
 data/prueba_modificacion.txt
 
 # Backups locales
-Rebecca-backup/
 backups/
+Rebecca-backup/
 
 # Archivos de editor/sistema
 .vscode/
