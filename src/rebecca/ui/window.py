@@ -239,19 +239,6 @@ class ChatWindow(QMainWindow):
             12
         )
 
-        self.avatar = AvatarWidget(
-            header
-        )
-
-        self.avatar.setFixedSize(
-            52,
-            52
-        )
-
-        layout.addWidget(
-            self.avatar
-        )
-
         title = QLabel(
             "Rebecca"
         )
