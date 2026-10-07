@@ -1,24 +1,20 @@
 from math import cos, pi, sin
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import (
-    QColor,
-    QPainter,
-    QPainterPath,
-    QRadialGradient,
-)
+from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QRadialGradient, QPen
 from PySide6.QtWidgets import QWidget
 
 
 class AvatarWidget(QWidget):
-    """Orb de Rebecca.
+    """Orb animado de Rebecca.
 
-    Diseño:
-    - energía líquida integrada
-    - ondas orgánicas
-    - verde + morado
-    - render ligero mediante caché
+    La animación se genera previamente en memoria.
+    El paintEvent solo dibuja el frame actual.
+    Esto evita recalcular gradientes y curvas en cada frame.
     """
+
+    FRAME_COUNT = 36
+    FRAME_INTERVAL = 33
 
     VALID_STATES = {
         "idle",
@@ -33,155 +29,160 @@ class AvatarWidget(QWidget):
         super().__init__(parent)
 
         self.state = "idle"
-        self.phase = 0.0
+        self.frame_index = 0
 
-        self._orb_cache = None
-        self._glow_cache = None
-        self._cache_size = None
+        self._frames = {}
+        self._frame_size = None
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._animate)
-        self.timer.start(33)
+        self.timer.start(self.FRAME_INTERVAL)
 
         self.setMinimumSize(90, 90)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(
+            Qt.WA_TranslucentBackground
+        )
 
     def set_state(self, state):
         if state not in self.VALID_STATES:
             state = "idle"
 
-        self.state = state
+        if state != self.state:
+            self.state = state
+            self.frame_index = 0
+
+            if state not in self._frames:
+                self._build_frames(state)
+
         self.update()
 
     def resizeEvent(self, event):
-        self._orb_cache = None
-        self._glow_cache = None
-        self._cache_size = None
+        self._frames.clear()
+        self._frame_size = None
         super().resizeEvent(event)
 
     def _animate(self):
-        speed = {
-            "idle": 0.018,
-            "thinking": 0.045,
-            "speaking": 0.070,
-            "tool": 0.055,
-            "error": 0.090,
-            "offline": 0.004,
-        }.get(self.state, 0.018)
+        if self.state == "offline":
+            return
 
-        self.phase = (
-            self.phase + speed
-        ) % (pi * 2)
+        frames = self._frames.get(self.state)
+
+        if not frames:
+            self._build_frames(self.state)
+            frames = self._frames.get(self.state)
+
+        if not frames:
+            return
+
+        self.frame_index = (
+            self.frame_index + 1
+        ) % len(frames)
 
         self.update()
 
     def paintEvent(self, event):
         del event
 
-        self._ensure_cache()
+        self._ensure_frames()
+
+        frames = self._frames.get(
+            self.state
+        )
+
+        if not frames:
+            return
 
         painter = QPainter(self)
+
         painter.setRenderHint(
-            QPainter.Antialiasing,
+            QPainter.SmoothPixmapTransform,
             True,
         )
 
-        cx = self.width() * 0.5
-        cy = self.height() * 0.5
+        frame = frames[
+            self.frame_index % len(frames)
+        ]
 
-        radius = min(
-            self.width(),
-            self.height(),
-        ) * 0.36
+        x = (
+            self.width()
+            - frame.width()
+        ) // 2
 
-        pulse = (
-            sin(self.phase) + 1.0
-        ) * 0.5
+        y = (
+            self.height()
+            - frame.height()
+        ) // 2
 
-        breathing = {
-            "idle": 1.8,
-            "thinking": 4.0,
-            "speaking": 6.0,
-            "tool": 3.5,
-            "error": 3.0,
-            "offline": 0.0,
-        }.get(self.state, 1.8)
-
-        radius += (
-            sin(self.phase)
-            * breathing
-        )
-
-        self._draw_glow(
-            painter,
-            cx,
-            cy,
-            radius,
-            pulse,
-        )
-
-        self._draw_liquid_orb(
-            painter,
-            cx,
-            cy,
-            radius,
+        painter.drawImage(
+            x,
+            y,
+            frame,
         )
 
         painter.end()
 
-    def _ensure_cache(self):
+    def _ensure_frames(self):
         size = (
             self.width(),
             self.height(),
         )
 
-        if (
-            self._orb_cache is not None
-            and self._cache_size == size
-        ):
+        if self._frame_size == size:
             return
 
-        self._cache_size = size
+        self._frame_size = size
+        self._frames.clear()
 
-        width = self.width()
-        height = self.height()
-
-        cx = width * 0.5
-        cy = height * 0.5
-        radius = min(
-            width,
-            height,
-        ) * 0.36
-
-        self._orb_cache = self._create_orb_cache(
-            width,
-            height,
-            cx,
-            cy,
-            radius,
+        self._build_frames(
+            self.state
         )
 
-        self._glow_cache = self._create_glow_cache(
-            width,
-            height,
-            cx,
-            cy,
-            radius,
+    def _build_frames(self, state):
+        if self.width() <= 0:
+            return
+
+        size = min(
+            self.width(),
+            self.height(),
         )
 
-    def _create_orb_cache(
+        radius = int(
+            size * 0.36
+        )
+
+        frames = []
+
+        for index in range(
+            self.FRAME_COUNT
+        ):
+            phase = (
+                index
+                / self.FRAME_COUNT
+                * pi
+                * 2
+            )
+
+            frames.append(
+                self._render_frame(
+                    size,
+                    radius,
+                    phase,
+                    state,
+                )
+            )
+
+        self._frames[state] = frames
+
+    def _render_frame(
         self,
-        width,
-        height,
-        cx,
-        cy,
+        size,
         radius,
+        phase,
+        state,
     ):
-        from PySide6.QtGui import QImage
-
         image = QImage(
-            width,
-            height,
+            size,
+            size,
             QImage.Format_ARGB32_Premultiplied,
         )
 
@@ -195,146 +196,89 @@ class AvatarWidget(QWidget):
         )
 
         painter = QPainter(image)
+
         painter.setRenderHint(
             QPainter.Antialiasing,
             True,
         )
 
-        orb = QPainterPath()
+        cx = size * 0.5
+        cy = size * 0.5
 
-        orb.addEllipse(
-            int(cx - radius),
-            int(cy - radius),
-            int(radius * 2),
-            int(radius * 2),
+        intensity = {
+            "idle": 0.55,
+            "thinking": 0.85,
+            "speaking": 1.00,
+            "tool": 0.90,
+            "error": 1.00,
+            "offline": 0.15,
+        }.get(
+            state,
+            0.55,
         )
 
-        painter.setClipPath(orb)
-
-        gradient = QRadialGradient(
-            cx - radius * 0.28,
-            cy - radius * 0.35,
-            radius * 1.55,
+        breathing = {
+            "idle": 1.5,
+            "thinking": 4.0,
+            "speaking": 6.0,
+            "tool": 4.0,
+            "error": 3.0,
+            "offline": 0.0,
+        }.get(
+            state,
+            1.5,
         )
 
-        gradient.setColorAt(
-            0.00,
-            QColor(220, 255, 238, 255),
+        current_radius = (
+            radius
+            + sin(phase)
+            * breathing
         )
 
-        gradient.setColorAt(
-            0.16,
-            QColor(80, 235, 165, 255),
-        )
-
-        gradient.setColorAt(
-            0.38,
-            QColor(55, 205, 185, 255),
-        )
-
-        gradient.setColorAt(
-            0.60,
-            QColor(95, 155, 210, 255),
-        )
-
-        gradient.setColorAt(
-            0.78,
-            QColor(150, 80, 245, 255),
-        )
-
-        gradient.setColorAt(
-            1.00,
-            QColor(65, 30, 110, 255),
-        )
-
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(gradient)
-
-        painter.drawEllipse(
-            int(cx - radius),
-            int(cy - radius),
-            int(radius * 2),
-            int(radius * 2),
-        )
-
-        painter.end()
-
-        return image
-
-    def _create_glow_cache(
-        self,
-        width,
-        height,
-        cx,
-        cy,
-        radius,
-    ):
-        from PySide6.QtGui import QImage
-
-        image = QImage(
-            width,
-            height,
-            QImage.Format_ARGB32_Premultiplied,
-        )
-
-        image.fill(
-            QColor(
-                0,
-                0,
-                0,
-                0,
+        if state != "offline":
+            self._draw_glow(
+                painter,
+                cx,
+                cy,
+                current_radius,
+                intensity,
+                phase,
             )
-        )
 
-        painter = QPainter(image)
-
-        glow_radius = radius * 1.28
-
-        gradient = QRadialGradient(
+        self._draw_base(
+            painter,
             cx,
             cy,
-            glow_radius,
+            current_radius,
+            state,
         )
 
-        gradient.setColorAt(
-            0.0,
-            QColor(
-                100,
-                240,
-                180,
-                35,
-            ),
-        )
+        if state != "offline":
+            self._draw_energy(
+                painter,
+                cx,
+                cy,
+                current_radius,
+                phase,
+                intensity,
+            )
 
-        gradient.setColorAt(
-            0.45,
-            QColor(
-                150,
-                90,
-                255,
-                20,
-            ),
-        )
+            self._draw_pink_ribbon(
+                painter,
+                cx,
+                cy,
+                current_radius,
+                phase,
+                intensity,
+            )
 
-        gradient.setColorAt(
-            1.0,
-            QColor(
-                150,
-                90,
-                255,
-                0,
-            ),
-        )
-
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(gradient)
-
-        painter.drawEllipse(
-            int(cx - glow_radius),
-            int(cy - glow_radius),
-            int(glow_radius * 2),
-            int(glow_radius * 2),
-        )
+            self._draw_highlight(
+                painter,
+                cx,
+                cy,
+                current_radius,
+                phase,
+            )
 
         painter.end()
 
@@ -346,42 +290,77 @@ class AvatarWidget(QWidget):
         cx,
         cy,
         radius,
-        pulse,
+        intensity,
+        phase,
     ):
-        if (
-            self.state == "offline"
-            or self._glow_cache is None
-        ):
-            return
-
-        painter.setOpacity(
-            0.65 + pulse * 0.20
+        glow_radius = (
+            radius
+            * (
+                1.20
+                + sin(phase)
+                * 0.025
+            )
         )
 
-        painter.drawImage(
-            0,
-            0,
-            self._glow_cache,
+        gradient = QRadialGradient(
+            cx,
+            cy,
+            glow_radius,
         )
 
-        painter.setOpacity(1.0)
+        gradient.setColorAt(
+            0.0,
+            QColor(
+                80,
+                245,
+                175,
+                int(38 * intensity),
+            ),
+        )
 
-    def _draw_liquid_orb(
+        gradient.setColorAt(
+            0.48,
+            QColor(
+                155,
+                90,
+                255,
+                int(22 * intensity),
+            ),
+        )
+
+        gradient.setColorAt(
+            1.0,
+            QColor(
+                155,
+                90,
+                255,
+                0,
+            ),
+        )
+
+        painter.setPen(
+            Qt.NoPen
+        )
+
+        painter.setBrush(
+            gradient
+        )
+
+        painter.drawEllipse(
+            int(cx - glow_radius),
+            int(cy - glow_radius),
+            int(glow_radius * 2),
+            int(glow_radius * 2),
+        )
+
+    def _draw_base(
         self,
         painter,
         cx,
         cy,
         radius,
+        state,
     ):
-        if self._orb_cache is None:
-            return
-
-        painter.drawImage(
-            0,
-            0,
-            self._orb_cache,
-        )
-
         orb = QPainterPath()
 
         orb.addEllipse(
@@ -392,94 +371,338 @@ class AvatarWidget(QWidget):
         )
 
         painter.save()
-        painter.setClipPath(orb)
 
-        self._draw_liquid_wave(
-            painter,
-            cx,
-            cy,
-            radius,
-            0,
+        painter.setClipPath(
+            orb
         )
 
-        self._draw_liquid_wave(
-            painter,
-            cx,
-            cy,
-            radius,
-            1,
+        gradient = QRadialGradient(
+            cx - radius * 0.25,
+            cy - radius * 0.30,
+            radius * 1.55,
         )
 
-        self._draw_liquid_wave(
-            painter,
-            cx,
-            cy,
-            radius,
-            2,
+        if state == "error":
+            gradient.setColorAt(
+                0.0,
+                QColor(
+                    255,
+                    175,
+                    220,
+                    255,
+                ),
+            )
+
+            gradient.setColorAt(
+                0.28,
+                QColor(
+                    235,
+                    85,
+                    175,
+                    255,
+                ),
+            )
+
+            gradient.setColorAt(
+                0.60,
+                QColor(
+                    150,
+                    70,
+                    245,
+                    255,
+                ),
+            )
+
+        elif state == "offline":
+            gradient.setColorAt(
+                0.0,
+                QColor(
+                    105,
+                    125,
+                    120,
+                    240,
+                )
+            )
+
+            gradient.setColorAt(
+                0.55,
+                QColor(
+                    75,
+                    75,
+                    100,
+                    240,
+                )
+            )
+
+            gradient.setColorAt(
+                1.0,
+                QColor(
+                    40,
+                    35,
+                    60,
+                    240,
+                )
+            )
+
+        else:
+            gradient.setColorAt(
+                0.0,
+                QColor(
+                    215,
+                    255,
+                    235,
+                    255,
+                )
+            )
+
+            gradient.setColorAt(
+                0.18,
+                QColor(
+                    75,
+                    235,
+                    165,
+                    255,
+                )
+            )
+
+            gradient.setColorAt(
+                0.40,
+                QColor(
+                    55,
+                    205,
+                    190,
+                    255,
+                )
+            )
+
+            gradient.setColorAt(
+                0.62,
+                QColor(
+                    105,
+                    135,
+                    220,
+                    255,
+                )
+            )
+
+            gradient.setColorAt(
+                0.82,
+                QColor(
+                    150,
+                    78,
+                    245,
+                    255,
+                )
+            )
+
+            gradient.setColorAt(
+                1.0,
+                QColor(
+                    65,
+                    30,
+                    110,
+                    255,
+                )
+            )
+
+        painter.setPen(
+            Qt.NoPen
+        )
+
+        painter.setBrush(
+            gradient
+        )
+
+        painter.drawEllipse(
+            int(cx - radius),
+            int(cy - radius),
+            int(radius * 2),
+            int(radius * 2),
         )
 
         painter.restore()
 
-        self._draw_core(
-            painter,
-            cx,
-            cy,
-            radius,
-        )
-
-    def _draw_liquid_wave(
+    def _draw_energy(
         self,
         painter,
         cx,
         cy,
         radius,
-        index,
+        phase,
+        intensity,
     ):
-        phase = self.phase
+        painter.save()
 
-        if index == 0:
-            color = QColor(
-                95,
-                255,
-                190,
-                70,
-            )
+        orb = QPainterPath()
 
-            offset = 0.0
-
-        elif index == 1:
-            color = QColor(
-                185,
-                105,
-                255,
-                65,
-            )
-
-            offset = 2.1
-
-        else:
-            color = QColor(
-                70,
-                235,
-                210,
-                48,
-            )
-
-            offset = 4.2
-
-        drift = (
-            phase * 0.65
-            + offset
+        orb.addEllipse(
+            int(cx - radius),
+            int(cy - radius),
+            int(radius * 2),
+            int(radius * 2),
         )
+
+        painter.setClipPath(
+            orb
+        )
+
+        blobs = (
+            (
+                0.36,
+                -0.10,
+                0.32,
+                QColor(
+                    75,
+                    255,
+                    180,
+                    int(65 * intensity),
+                ),
+            ),
+            (
+                -0.28,
+                0.20,
+                0.38,
+                QColor(
+                    175,
+                    95,
+                    255,
+                    int(58 * intensity),
+                ),
+            ),
+            (
+                0.05,
+                0.34,
+                0.30,
+                QColor(
+                    65,
+                    220,
+                    195,
+                    int(48 * intensity),
+                ),
+            ),
+        )
+
+        for i, (
+            ox,
+            oy,
+            scale,
+            color,
+        ) in enumerate(blobs):
+            movement = (
+                phase
+                * (
+                    0.55
+                    + i * 0.11
+                )
+            )
+
+            x = (
+                cx
+                + (
+                    ox
+                    + cos(
+                        movement
+                        + i
+                    )
+                    * 0.10
+                )
+                * radius
+            )
+
+            y = (
+                cy
+                + (
+                    oy
+                    + sin(
+                        movement
+                        * 0.8
+                        + i
+                    )
+                    * 0.08
+                )
+                * radius
+            )
+
+            r = (
+                radius
+                * scale
+            )
+
+            gradient = QRadialGradient(
+                x,
+                y,
+                r,
+            )
+
+            gradient.setColorAt(
+                0.0,
+                color,
+            )
+
+            gradient.setColorAt(
+                0.55,
+                QColor(
+                    color.red(),
+                    color.green(),
+                    color.blue(),
+                    int(
+                        color.alpha()
+                        * 0.35
+                    ),
+                ),
+            )
+
+            gradient.setColorAt(
+                1.0,
+                QColor(
+                    0,
+                    0,
+                    0,
+                    0,
+                ),
+            )
+
+            painter.setPen(
+                Qt.NoPen
+            )
+
+            painter.setBrush(
+                gradient
+            )
+
+            painter.drawEllipse(
+                int(x - r),
+                int(y - r),
+                int(r * 2),
+                int(r * 2),
+            )
+
+        painter.restore()
+
+    def _draw_pink_ribbon(
+        self,
+        painter,
+        cx,
+        cy,
+        radius,
+        phase,
+        intensity,
+    ):
+        """Energía rosa integrada, no una línea dura."""
 
         y = (
             cy
-            + sin(drift)
+            + sin(
+                phase * 0.72
+            )
             * radius
-            * 0.24
+            * 0.08
         )
 
-        amplitude = radius * 0.20
+        drift = (
+            phase
+            * 0.55
+        )
 
         path = QPainterPath()
 
@@ -489,98 +712,169 @@ class AvatarWidget(QWidget):
         )
 
         path.cubicTo(
-            cx - radius * 0.78,
-            y - amplitude,
-            cx - radius * 0.30,
-            y + amplitude,
-            cx + radius * 0.05,
+            cx - radius * 0.72,
+            y
+            - radius * (
+                0.12
+                + sin(drift)
+                * 0.04
+            ),
+            cx - radius * 0.28,
+            y
+            + radius * (
+                0.10
+                + cos(drift)
+                * 0.03
+            ),
+            cx + radius * 0.10,
             y,
         )
 
         path.cubicTo(
-            cx + radius * 0.42,
-            y - amplitude,
+            cx + radius * 0.48,
+            y
+            - radius * 0.11,
             cx + radius * 0.82,
-            y + amplitude,
+            y
+            + radius * 0.08,
             cx + radius * 1.25,
-            y,
+            y
+            - radius * 0.015,
         )
 
-        path.lineTo(
-            cx + radius * 1.25,
-            cy + radius * 1.25,
+        painter.save()
+
+        orb = QPainterPath()
+
+        orb.addEllipse(
+            int(cx - radius),
+            int(cy - radius),
+            int(radius * 2),
+            int(radius * 2),
         )
 
-        path.lineTo(
-            cx - radius * 1.25,
-            cy + radius * 1.25,
+        painter.setClipPath(
+            orb
         )
 
-        path.closeSubpath()
+        # Aura rosa muy suave.
+        soft_pen = QPen(
+            QColor(
+                249,
+                133,
+                180,
+                int(42 * intensity),
+            ),
+            radius * 0.13,
+        )
 
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(color)
+        soft_pen.setCapStyle(
+            Qt.RoundCap
+        )
 
-        painter.drawPath(path)
+        painter.setPen(
+            soft_pen
+        )
 
-    def _draw_core(
+        painter.drawPath(
+            path
+        )
+
+        # Núcleo rosa muy transparente.
+        core_pen = QPen(
+            QColor(
+                249,
+                133,
+                180,
+                int(24 * intensity),
+            ),
+            radius * 0.045,
+        )
+
+        core_pen.setCapStyle(
+            Qt.RoundCap
+        )
+
+        painter.setPen(
+            core_pen
+        )
+
+        painter.drawPath(
+            path
+        )
+
+        painter.restore()
+
+    def _draw_highlight(
         self,
         painter,
         cx,
         cy,
         radius,
+        phase,
     ):
-        if self.state == "offline":
-            return
-
-        core = QRadialGradient(
+        x = (
             cx
-            + cos(self.phase)
+            - radius * 0.32
+            + cos(phase)
             * radius
-            * 0.12,
-            cy
-            + sin(self.phase * 0.8)
-            * radius
-            * 0.10,
-            radius * 0.42,
+            * 0.025
         )
 
-        core.setColorAt(
+        y = (
+            cy
+            - radius * 0.42
+        )
+
+        gradient = QRadialGradient(
+            x,
+            y,
+            radius * 0.40,
+        )
+
+        gradient.setColorAt(
             0.0,
             QColor(
-                225,
                 255,
-                240,
-                55,
+                255,
+                255,
+                110,
             ),
         )
 
-        core.setColorAt(
-            0.45,
+        gradient.setColorAt(
+            0.35,
             QColor(
-                100,
-                245,
-                190,
-                22,
+                235,
+                255,
+                248,
+                38,
             ),
         )
 
-        core.setColorAt(
+        gradient.setColorAt(
             1.0,
             QColor(
-                100,
-                245,
-                190,
+                255,
+                255,
+                255,
                 0,
             ),
         )
 
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(core)
+        painter.setPen(
+            Qt.NoPen
+        )
+
+        painter.setBrush(
+            gradient
+        )
+
+        r = radius * 0.43
 
         painter.drawEllipse(
-            int(cx - radius * 0.42),
-            int(cy - radius * 0.42),
-            int(radius * 0.84),
-            int(radius * 0.84),
+            int(x - r),
+            int(y - r * 0.65),
+            int(r * 1.65),
+            int(r * 1.05),
         )
