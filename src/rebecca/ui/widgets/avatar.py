@@ -58,7 +58,6 @@ class AvatarWidget(QWidget):
 
         if state != self.state:
             self.state = state
-            self.frame_index = 0
 
             if state not in self._frames:
                 self._build_frames(state)
@@ -599,13 +598,9 @@ class AvatarWidget(QWidget):
             scale,
             color,
         ) in enumerate(blobs):
-            movement = (
-                phase
-                * (
-                    0.55
-                    + i * 0.11
-                )
-            )
+            # Integer harmonics keep both position and velocity periodic at
+            # the loop boundary, including each independently moving blob.
+            movement = phase * (1 + i)
 
             x = (
                 cx
@@ -714,8 +709,9 @@ class AvatarWidget(QWidget):
         left = cx - radius * 1.15
         right = cx + radius * 1.15
         steps = 72
-        # The wave travels faster while the breathing phase remains unchanged.
-        drift = phase * 0.48
+        # Use whole-cycle harmonics so the wave returns with matching
+        # position and velocity when the pre-rendered loop wraps.
+        drift = phase * 2
 
         upper = []
         lower = []
@@ -730,14 +726,14 @@ class AvatarWidget(QWidget):
                 * radius * 0.20
             )
             secondary = (
-                sin(2 * pi * t - drift * 0.45)
-                * radius * 0.035
+                sin(2 * pi * t - phase)
+                * radius * 0.045
             )
-            sway = sin(phase * 0.42) * radius * 0.025
+            sway = sin(phase) * radius * 0.018
             y = cy + wave + secondary + sway
 
             half_width = radius * (
-                0.095 + 0.015 * sin(2 * pi * t + drift)
+                0.072 + 0.012 * sin(2 * pi * t + drift)
             )
 
             upper.append((x, y - half_width))
@@ -765,9 +761,9 @@ class AvatarWidget(QWidget):
             )
 
         for width, alpha in (
-            (radius * 0.48, 10),
-            (radius * 0.30, 18),
-            (radius * 0.18, 28),
+            (radius * 0.54, 7),
+            (radius * 0.34, 13),
+            (radius * 0.20, 20),
         ):
             halo = QPen(
                 QColor(249, 133, 180, int(alpha * intensity)),
@@ -788,23 +784,23 @@ class AvatarWidget(QWidget):
         )
         gradient.setColorAt(
             0.0,
-            QColor(249, 133, 180, int(35 * intensity)),
+            QColor(249, 133, 180, int(24 * intensity)),
         )
         gradient.setColorAt(
             0.28,
-            QColor(249, 133, 180, int(100 * intensity)),
+            QColor(249, 133, 180, int(72 * intensity)),
         )
         gradient.setColorAt(
             0.50,
-            QColor(255, 160, 200, int(175 * intensity)),
+            QColor(255, 160, 200, int(132 * intensity)),
         )
         gradient.setColorAt(
             0.72,
-            QColor(249, 133, 180, int(100 * intensity)),
+            QColor(249, 133, 180, int(72 * intensity)),
         )
         gradient.setColorAt(
             1.0,
-            QColor(249, 133, 180, int(35 * intensity)),
+            QColor(249, 133, 180, int(24 * intensity)),
         )
 
         painter.setPen(Qt.NoPen)
