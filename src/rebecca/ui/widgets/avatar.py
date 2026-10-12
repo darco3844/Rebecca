@@ -1,7 +1,15 @@
 from math import cos, pi, sin
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QRadialGradient, QPen
+from PySide6.QtGui import (
+    QColor,
+    QImage,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QRadialGradient,
+    QPen,
+)
 from PySide6.QtWidgets import QWidget
 
 
@@ -13,8 +21,9 @@ class AvatarWidget(QWidget):
     Esto evita recalcular gradientes y curvas en cada frame.
     """
 
-    FRAME_COUNT = 36
-    FRAME_INTERVAL = 33
+    # 96 frames at 42 ms make a slow ~4-second idle breathing cycle.
+    FRAME_COUNT = 96
+    FRAME_INTERVAL = 42
 
     VALID_STATES = {
         "idle",
@@ -218,7 +227,7 @@ class AvatarWidget(QWidget):
         )
 
         breathing = {
-            "idle": 1.5,
+            "idle": 2.4,
             "thinking": 4.0,
             "speaking": 6.0,
             "tool": 4.0,
@@ -688,120 +697,65 @@ class AvatarWidget(QWidget):
         phase,
         intensity,
     ):
-        """Energía rosa integrada, no una línea dura."""
-
-        y = (
-            cy
-            + sin(
-                phase * 0.72
-            )
-            * radius
-            * 0.08
-        )
-
-        drift = (
-            phase
-            * 0.55
-        )
-
-        path = QPainterPath()
-
-        path.moveTo(
-            cx - radius * 1.25,
-            y,
-        )
-
-        path.cubicTo(
-            cx - radius * 0.72,
-            y
-            - radius * (
-                0.12
-                + sin(drift)
-                * 0.04
-            ),
-            cx - radius * 0.28,
-            y
-            + radius * (
-                0.10
-                + cos(drift)
-                * 0.03
-            ),
-            cx + radius * 0.10,
-            y,
-        )
-
-        path.cubicTo(
-            cx + radius * 0.48,
-            y
-            - radius * 0.11,
-            cx + radius * 0.82,
-            y
-            + radius * 0.08,
-            cx + radius * 1.25,
-            y
-            - radius * 0.015,
-        )
-
+        """Dibuja una corriente rosa ancha con dos ondas completas."""
         painter.save()
 
         orb = QPainterPath()
-
         orb.addEllipse(
             int(cx - radius),
             int(cy - radius),
             int(radius * 2),
             int(radius * 2),
         )
+        painter.setClipPath(orb)
 
-        painter.setClipPath(
-            orb
-        )
+        left = cx - radius * 1.12
+        right = cx + radius * 1.12
+        steps = 64
+        drift = phase * 0.24
+        centerline = QPainterPath()
+        upper_edge = []
+        lower_edge = []
 
-        # Aura rosa muy suave.
-        soft_pen = QPen(
-            QColor(
-                249,
-                133,
-                180,
-                int(42 * intensity),
-            ),
-            radius * 0.13,
-        )
+        for index in range(steps + 1):
+            t = index / steps
+            x = left + (right - left) * t
+            wave = sin(2 * pi * 2 * t + drift) * radius * 0.22
+            slow_sway = sin(phase * 0.42) * radius * 0.07
+            y = cy + slow_sway + wave
+            half_width = radius * (0.14 + 0.025 * cos(2 * pi * t + drift))
 
-        soft_pen.setCapStyle(
-            Qt.RoundCap
-        )
+            if index == 0:
+                centerline.moveTo(x, y)
+            else:
+                centerline.lineTo(x, y)
+            upper_edge.append((x, y - half_width))
+            lower_edge.append((x, y + half_width))
 
-        painter.setPen(
-            soft_pen
-        )
+        band = QPainterPath()
+        band.moveTo(*upper_edge[0])
+        for point in upper_edge[1:]:
+            band.lineTo(*point)
+        for point in reversed(lower_edge):
+            band.lineTo(*point)
+        band.closeSubpath()
 
-        painter.drawPath(
-            path
+        # A wide, faint halo softens the edges into the surrounding colors.
+        halo = QPen(
+            QColor(249, 133, 180, int(18 * intensity)),
+            radius * 0.52,
         )
+        halo.setCapStyle(Qt.RoundCap)
+        painter.setPen(halo)
+        painter.drawPath(centerline)
 
-        # Núcleo rosa muy transparente.
-        core_pen = QPen(
-            QColor(
-                249,
-                133,
-                180,
-                int(24 * intensity),
-            ),
-            radius * 0.045,
-        )
-
-        core_pen.setCapStyle(
-            Qt.RoundCap
-        )
-
-        painter.setPen(
-            core_pen
-        )
-
-        painter.drawPath(
-            path
-        )
+        gradient = QLinearGradient(cx, cy - radius * 0.38, cx, cy + radius * 0.38)
+        gradient.setColorAt(0.0, QColor(249, 133, 180, int(12 * intensity)))
+        gradient.setColorAt(0.5, QColor(249, 133, 180, int(58 * intensity)))
+        gradient.setColorAt(1.0, QColor(249, 133, 180, int(12 * intensity)))
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(gradient)
+        painter.drawPath(band)
 
         painter.restore()
 

@@ -307,6 +307,17 @@ class PluginCard(QFrame):
             header
         )
 
+        error_message = plugin.get("error")
+        if error_message:
+            error_label = QLabel(
+                f"No se pudo iniciar este plugin: {error_message}"
+            )
+            error_label.setWordWrap(True)
+            error_label.setStyleSheet(
+                "color: #e7b76a; font-size: 11px;"
+            )
+            layout.addWidget(error_label)
+
         tools_title = QLabel(
             "Herramientas"
         )

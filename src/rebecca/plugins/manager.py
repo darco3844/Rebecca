@@ -16,6 +16,7 @@ class PluginManager:
         self.plugins = {}
         self.plugin_tools = {}
         self.plugin_modules = {}
+        self.plugin_errors = {}
 
         if catalog is None:
             from src.rebecca.plugins.catalog import PLUGIN_CATALOG
@@ -98,7 +99,15 @@ class PluginManager:
         return list(self.plugin_catalog.keys())
 
     def describe_plugins(self):
-        return [plugin.describe() for plugin in self.plugins.values()]
+        descriptions = [
+            plugin.describe()
+            for plugin in self.plugins.values()
+        ]
+        descriptions.extend(
+            self.get_plugin_state(name)
+            for name in self.plugin_errors
+        )
+        return descriptions
 
     def describe_plugin(self, name):
         plugin = self.get_plugin(name)
@@ -131,6 +140,7 @@ class PluginManager:
                 "loaded": False,
                 "module": module,
                 "tools": [],
+                "error": self.plugin_errors.get(name),
             }
 
         description = plugin.describe()
@@ -177,13 +187,26 @@ class PluginManager:
             }
 
         self.load_module(module_name)
+        self.plugin_errors.pop(name, None)
         return self.get_plugin_state(name)
 
     def load_enabled_plugins(self):
         results = []
         for name in self.plugin_catalog:
             if self.is_enabled(name):
-                results.append(self.load_plugin(name))
+                try:
+                    results.append(self.load_plugin(name))
+                except Exception as error:
+                    # Optional integrations must not prevent Rebecca from opening.
+                    self.plugin_errors[name] = str(error)
+                    results.append({
+                        "name": name,
+                        "enabled": True,
+                        "loaded": False,
+                        "module": self.plugin_catalog[name],
+                        "tools": [],
+                        "error": str(error),
+                    })
         return results
 
     def set_enabled(self, name, enabled):
