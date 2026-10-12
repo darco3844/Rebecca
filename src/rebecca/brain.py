@@ -16,6 +16,7 @@ class Brain:
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": 192,
+            "chat_template_kwargs": {"enable_thinking": False},
         }
 
         request = urllib.request.Request(
