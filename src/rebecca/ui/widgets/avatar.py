@@ -385,10 +385,12 @@ class AvatarWidget(QWidget):
             orb
         )
 
+        # Keep the light centered inside the spherical volume instead of
+        # stretching a bright highlight toward one edge.
         gradient = QRadialGradient(
-            cx - radius * 0.25,
-            cy - radius * 0.30,
-            radius * 1.55,
+            cx - radius * 0.12,
+            cy - radius * 0.14,
+            radius * 1.38,
         )
 
         if state == "error":
@@ -697,7 +699,7 @@ class AvatarWidget(QWidget):
         phase,
         intensity,
     ):
-        """Dibuja una corriente rosa ancha con dos ondas completas."""
+        """Banda rosa ondulada con halo multicapa."""
         painter.save()
 
         orb = QPainterPath()
@@ -709,50 +711,102 @@ class AvatarWidget(QWidget):
         )
         painter.setClipPath(orb)
 
-        left = cx - radius * 1.12
-        right = cx + radius * 1.12
-        steps = 64
-        drift = phase * 0.24
-        centerline = QPainterPath()
-        upper_edge = []
-        lower_edge = []
+        left = cx - radius * 1.15
+        right = cx + radius * 1.15
+        steps = 72
+        # The wave travels faster while the breathing phase remains unchanged.
+        drift = phase * 0.48
+
+        upper = []
+        lower = []
 
         for index in range(steps + 1):
             t = index / steps
             x = left + (right - left) * t
-            wave = sin(2 * pi * 2 * t + drift) * radius * 0.22
-            slow_sway = sin(phase * 0.42) * radius * 0.07
-            y = cy + slow_sway + wave
-            half_width = radius * (0.14 + 0.025 * cos(2 * pi * t + drift))
 
-            if index == 0:
-                centerline.moveTo(x, y)
-            else:
-                centerline.lineTo(x, y)
-            upper_edge.append((x, y - half_width))
-            lower_edge.append((x, y + half_width))
+            # Dos ondas amplias, con una oscilación secundaria suave.
+            wave = (
+                sin(2 * pi * 2 * t + drift)
+                * radius * 0.20
+            )
+            secondary = (
+                sin(2 * pi * t - drift * 0.45)
+                * radius * 0.035
+            )
+            sway = sin(phase * 0.42) * radius * 0.025
+            y = cy + wave + secondary + sway
+
+            half_width = radius * (
+                0.095 + 0.015 * sin(2 * pi * t + drift)
+            )
+
+            upper.append((x, y - half_width))
+            lower.append((x, y + half_width))
 
         band = QPainterPath()
-        band.moveTo(*upper_edge[0])
-        for point in upper_edge[1:]:
+        band.moveTo(*upper[0])
+
+        for point in upper[1:]:
             band.lineTo(*point)
-        for point in reversed(lower_edge):
+
+        for point in reversed(lower):
             band.lineTo(*point)
+
         band.closeSubpath()
 
-        # A wide, faint halo softens the edges into the surrounding colors.
-        halo = QPen(
-            QColor(249, 133, 180, int(18 * intensity)),
-            radius * 0.52,
-        )
-        halo.setCapStyle(Qt.RoundCap)
-        painter.setPen(halo)
-        painter.drawPath(centerline)
+        # Layer translucent, increasingly narrow strokes around the band to
+        # create a soft light falloff instead of a crisp candy stripe.
+        centerline = QPainterPath()
+        centerline.moveTo(*((upper[0][0], (upper[0][1] + lower[0][1]) * 0.5)))
+        for upper_point, lower_point in zip(upper[1:], lower[1:]):
+            centerline.lineTo(
+                upper_point[0],
+                (upper_point[1] + lower_point[1]) * 0.5,
+            )
 
-        gradient = QLinearGradient(cx, cy - radius * 0.38, cx, cy + radius * 0.38)
-        gradient.setColorAt(0.0, QColor(249, 133, 180, int(12 * intensity)))
-        gradient.setColorAt(0.5, QColor(249, 133, 180, int(58 * intensity)))
-        gradient.setColorAt(1.0, QColor(249, 133, 180, int(12 * intensity)))
+        for width, alpha in (
+            (radius * 0.48, 10),
+            (radius * 0.30, 18),
+            (radius * 0.18, 28),
+        ):
+            halo = QPen(
+                QColor(249, 133, 180, int(alpha * intensity)),
+                width,
+            )
+            halo.setCapStyle(Qt.RoundCap)
+            halo.setJoinStyle(Qt.RoundJoin)
+            painter.setPen(halo)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawPath(centerline)
+
+        # The bright interior stays translucent, with a narrow luminous core.
+        gradient = QLinearGradient(
+            cx,
+            cy - radius * 0.34,
+            cx,
+            cy + radius * 0.34,
+        )
+        gradient.setColorAt(
+            0.0,
+            QColor(249, 133, 180, int(35 * intensity)),
+        )
+        gradient.setColorAt(
+            0.28,
+            QColor(249, 133, 180, int(100 * intensity)),
+        )
+        gradient.setColorAt(
+            0.50,
+            QColor(255, 160, 200, int(175 * intensity)),
+        )
+        gradient.setColorAt(
+            0.72,
+            QColor(249, 133, 180, int(100 * intensity)),
+        )
+        gradient.setColorAt(
+            1.0,
+            QColor(249, 133, 180, int(35 * intensity)),
+        )
+
         painter.setPen(Qt.NoPen)
         painter.setBrush(gradient)
         painter.drawPath(band)
