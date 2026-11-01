@@ -23,4 +23,4 @@ También puede leer archivos de texto mediante la herramienta file_read.
 Construir progresivamente una asistente personal local capaz de mantener contexto, memoria, personalidad consistente y acceso controlado a herramientas del sistema.
 
 ## Donativo para continuar el proyecto 
-https://ko-fe/dARCO3844
+https://ko-fi/dARCO3844
